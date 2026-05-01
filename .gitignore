@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Data files — JSONL may contain PHI, never commit
+data/*.jsonl
+
+# Vercel build cache
+.vercel/
+
+# Claude Code local settings (machine-specific)
+.claude/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

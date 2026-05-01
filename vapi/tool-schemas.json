@@ -1,0 +1,226 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "process_call_intent",
+      "description": "Classify the caller's intent when it is ambiguous. Returns the detected intent, what the assistant should say next, and what information still needs to be collected. Call this at the start of a call or any time the caller's request is unclear.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The caller's exact words or a summary of what they just said."
+          },
+          "phone": {
+            "type": "string",
+            "description": "The caller's phone number if already collected."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The caller's name if already collected."
+          }
+        },
+        "required": ["message"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/process-call-intent",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "send_calendly_link",
+      "description": "Send a Calendly appointment booking link to the caller via SMS. Call this only after you have confirmed the caller's phone number.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "The caller's phone number. Any format is accepted — the backend normalizes it."
+          },
+          "appointment_type": {
+            "type": "string",
+            "enum": ["new_patient", "existing_patient", "sales", "support"],
+            "description": "The type of appointment to book."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The caller's name for the SMS greeting."
+          },
+          "caller_message": {
+            "type": "string",
+            "description": "Optional: the caller's exact words about their appointment, used to enrich the record."
+          }
+        },
+        "required": ["phone_number", "appointment_type"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/send-calendly-link",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_refill_request",
+      "description": "Submit a prescription refill intake request to clinical staff for review. This tool records the request ONLY — it does NOT approve or deny refills. A licensed provider reviews every submission before any action is taken.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "The caller's phone number."
+          },
+          "medication_name": {
+            "type": "string",
+            "description": "The exact name of the medication as it appears on the prescription label."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "dosage": {
+            "type": "string",
+            "description": "The dosage (e.g. '10mg'). Optional."
+          },
+          "pharmacy_name": {
+            "type": "string",
+            "description": "The patient's pharmacy name. Optional."
+          },
+          "pharmacy_phone": {
+            "type": "string",
+            "description": "The pharmacy's phone number. Optional."
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "The patient's date of birth, as stated by the caller. Optional."
+          },
+          "is_out_of_medication": {
+            "type": "boolean",
+            "description": "True if the caller says they have already run out of their medication."
+          },
+          "caller_message": {
+            "type": "string",
+            "description": "Optional: the caller's exact words about the refill, used for LLM enrichment."
+          }
+        },
+        "required": ["phone_number", "medication_name"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/create-refill-request",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_sales_lead",
+      "description": "Record a sales inquiry and notify the sales team. Use this when a caller is interested in business partnerships, purchasing services, or wants to speak with the sales team.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "The caller's phone number."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The caller's full name."
+          },
+          "company_name": {
+            "type": "string",
+            "description": "The caller's company or organization name. Optional."
+          },
+          "interest": {
+            "type": "string",
+            "description": "Brief description of what the caller is interested in."
+          },
+          "email": {
+            "type": "string",
+            "description": "The caller's email address. Optional."
+          },
+          "caller_message": {
+            "type": "string",
+            "description": "Optional: the caller's exact words for LLM enrichment."
+          }
+        },
+        "required": ["phone_number"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/create-sales-lead",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_support_ticket",
+      "description": "Open a support ticket for non-clinical issues such as billing questions, patient portal access, or account problems.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "The caller's phone number."
+          },
+          "issue_description": {
+            "type": "string",
+            "description": "A description of the issue the caller is experiencing."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The caller's full name."
+          },
+          "urgency": {
+            "type": "string",
+            "enum": ["low", "normal", "high"],
+            "description": "Urgency level: high = cannot use system at all, normal = something is wrong, low = question or minor issue."
+          },
+          "caller_message": {
+            "type": "string",
+            "description": "Optional: the caller's exact words for LLM enrichment."
+          }
+        },
+        "required": ["phone_number", "issue_description"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/create-support-ticket",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cancel_calendly_appointment",
+      "description": "Cancel a scheduled Calendly appointment using its UUID. The UUID is in the caller's Calendly confirmation email. Always confirm with the caller before calling this tool.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_uuid": {
+            "type": "string",
+            "description": "The Calendly scheduled event UUID from the caller's confirmation email (e.g. 550e8400-e29b-41d4-a716-446655440000)."
+          },
+          "reason": {
+            "type": "string",
+            "description": "The reason the caller gave for cancelling. Optional."
+          },
+          "caller_name": {
+            "type": "string",
+            "description": "The caller's name. Optional."
+          }
+        },
+        "required": ["event_uuid"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_URL/tools/cancel-calendly-appointment",
+      "secret": "YOUR_VAPI_WEBHOOK_SECRET"
+    }
+  }
+]
