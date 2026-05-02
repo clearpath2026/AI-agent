@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agent Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #111;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --accent: #2a7aff;
+      --green: #22c55e;
+      --purple: #a855f7;
+      --red: #ef4444;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+
+    #auth-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #auth-bar input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 12px;
+      width: 200px;
+    }
+    #auth-bar input:focus { outline: none; border-color: var(--accent); }
+    #auth-status { font-size: 12px; color: var(--muted); }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 20px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn.active { border-bottom-color: var(--accent); color: var(--text); }
+
+    .tab-panel { display: none; padding: 24px; max-width: 860px; }
+    .tab-panel.active { display: block; }
+
+    /* Prompt cards */
+    .prompt-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .prompt-card.overridden { border-color: #22c55e44; }
+    .card-header {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+    }
+    .card-title { font-size: 14px; font-weight: 700; }
+    .badge {
+      border-radius: 10px;
+      font-size: 11px;
+      margin-left: 8px;
+      padding: 2px 8px;
+    }
+    .badge-default { background: #ffffff11; color: var(--muted); }
+    .badge-custom  { background: #22c55e22; color: var(--green); }
+    .badge-vapi    { background: #a855f722; color: var(--purple); }
+    .card-actions { display: flex; gap: 8px; }
+
+    textarea {
+      background: var(--surface2);
+      border: none;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+      display: block;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 12px 16px;
+      resize: vertical;
+      width: 100%;
+    }
+    textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .card-footer {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+    }
+    .updated-at { color: var(--muted); font-size: 11px; }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 14px;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .8; }
+    button:disabled { cursor: not-allowed; opacity: .4; }
+    .btn-save   { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-reset  { background: transparent; color: var(--red); border-color: #ef444433; }
+    .btn-copy   { background: transparent; color: var(--muted); }
+    .btn-action { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 13px; padding: 6px 16px; }
+    .btn-refresh { background: transparent; color: var(--muted); font-size: 13px; padding: 6px 16px; }
+
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      border-radius: 6px;
+      bottom: 24px;
+      color: var(--text);
+      font-size: 13px;
+      opacity: 0;
+      padding: 10px 16px;
+      pointer-events: none;
+      position: fixed;
+      right: 24px;
+      transition: opacity .25s;
+    }
+    .toast.error { border-left-color: var(--red); }
+    .toast.show  { opacity: 1; }
+
+    /* Vapi tab */
+    .section-label { color: var(--muted); font-size: 12px; letter-spacing: .05em; margin-bottom: 8px; text-transform: uppercase; }
+    .active-box {
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid #2a7aff44;
+      border-radius: 8px;
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+    }
+    .dot { background: var(--green); border-radius: 50%; height: 8px; width: 8px; flex-shrink: 0; }
+    .active-name { font-size: 15px; font-weight: 700; }
+    .active-id   { color: var(--muted); font-family: monospace; font-size: 12px; margin-left: 8px; }
+
+    .assistant-row {
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding: 12px 16px;
+    }
+    .assistant-row.active-row { border-color: #2a7aff66; }
+    .asst-name { font-size: 14px; font-weight: 600; }
+    .asst-id   { color: var(--muted); font-family: monospace; font-size: 11px; margin-left: 8px; }
+    .badge-selected { background: #2a7aff22; border-radius: 10px; color: var(--accent); font-size: 11px; padding: 2px 10px; }
+
+    .vapi-toolbar { align-items: center; display: flex; gap: 10px; margin-bottom: 16px; }
+    #vapi-error { color: var(--red); font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AI Agent Admin</h1>
+  <div id="auth-bar">
+    <input type="password" id="pw-input" placeholder="Admin password" autocomplete="current-password">
+    <button class="btn-action" onclick="unlock()">Unlock</button>
+    <span id="auth-status"></span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('prompts')">Prompts</button>
+  <button class="tab-btn" onclick="switchTab('vapi')">Vapi Assistant</button>
+</div>
+
+<div id="tab-prompts" class="tab-panel active">
+  <div id="prompts-container"><p style="color:var(--muted);padding:16px 0;">Enter your admin password to load prompts.</p></div>
+</div>
+
+<div id="tab-vapi" class="tab-panel">
+  <p class="section-label" style="margin-bottom:6px">Active assistant</p>
+  <div class="active-box" id="active-box">
+    <div class="dot" style="background:var(--muted)"></div>
+    <span class="active-name" id="active-name">Not set</span>
+    <span class="active-id" id="active-id"></span>
+  </div>
+
+  <div class="vapi-toolbar">
+    <p class="section-label" style="margin:0">All assistants on your Vapi account</p>
+    <button class="btn-refresh" onclick="loadAssistants()">&#8635; Refresh</button>
+  </div>
+  <div id="assistants-container"><p style="color:var(--muted);">Enter your admin password and switch to this tab to load assistants.</p></div>
+  <div id="vapi-error"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const PROMPT_LABELS = {
+    'prompt.safety_context':         { label: 'Safety Context', note: 'Prepended to ALL LLM calls' },
+    'prompt.classify_intent':        { label: 'Classify Call Intent', note: '' },
+    'prompt.extract_appointment':    { label: 'Extract Appointment Details', note: '' },
+    'prompt.extract_refill':         { label: 'Extract Refill Details', note: '' },
+    'prompt.extract_sales_lead':     { label: 'Extract Sales Lead', note: '' },
+    'prompt.extract_support_ticket': { label: 'Extract Support Ticket', note: '' },
+    'prompt.summarize_call':         { label: 'Summarize Call', note: '' },
+    'prompt.generate_staff_note':    { label: 'Generate Staff Note', note: 'Include {type} — replaced with record type at runtime' },
+    'prompt.vapi_assistant_script':  { label: 'Vapi Assistant Script', note: 'Voice AI personality & flow — copy to Vapi dashboard' },
+  };
+
+  let password = sessionStorage.getItem('adminPw') || '';
+  let promptsLoaded = false;
+
+  if (password) {
+    document.getElementById('pw-input').value = '••••••••';
+    loadAll();
+  }
+
+  function unlock() {
+    const val = document.getElementById('pw-input').value;
+    if (!val || val === '••••••••') return;
+    password = val;
+    sessionStorage.setItem('adminPw', password);
+    document.getElementById('pw-input').value = '••••••••';
+    loadAll();
+  }
+
+  document.getElementById('pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') unlock();
+  });
+
+  function authHeaders() {
+    return { 'x-admin-password': password, 'Content-Type': 'application/json' };
+  }
+
+  async function loadAll() {
+    await Promise.all([loadPrompts(), loadVapiConfig()]);
+    if (document.getElementById('tab-vapi').classList.contains('active')) {
+      loadAssistants();
+    }
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) =>
+      b.classList.toggle('active', ['prompts', 'vapi'][i] === name));
+    document.querySelectorAll('.tab-panel').forEach(p =>
+      p.classList.toggle('active', p.id === 'tab-' + name));
+
+    if (name === 'vapi' && password && document.getElementById('assistants-container').children.length <= 1) {
+      loadAssistants();
+    }
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ── Prompts tab ────────────────────────────────────────────────────────────
+  async function loadPrompts() {
+    if (!password) return;
+    const res = await fetch('/admin/prompts', { headers: authHeaders() });
+    if (res.status === 401) {
+      setAuthStatus('Wrong password', true);
+      return;
+    }
+    setAuthStatus('Unlocked', false);
+    const { prompts } = await res.json();
+    promptsLoaded = true;
+    renderPrompts(prompts);
+  }
+
+  function renderPrompts(prompts) {
+    const container = document.getElementById('prompts-container');
+    container.innerHTML = prompts.map(p => {
+      const meta = PROMPT_LABELS[p.key] || { label: p.key, note: '' };
+      const isVapi = p.key === 'prompt.vapi_assistant_script';
+      return `
+        <div class="prompt-card ${p.isOverridden ? 'overridden' : ''}" id="card-${p.key}">
+          <div class="card-header">
+            <div>
+              <span class="card-title">${meta.label}</span>
+              ${meta.note ? `<span class="badge ${isVapi ? 'badge-vapi' : 'badge-default'}">${meta.note}</span>` : ''}
+              <span class="badge ${p.isOverridden ? 'badge-custom' : 'badge-default'}" id="badge-${p.key}">
+                ${p.isOverridden ? 'Customized' : 'Using default'}
+              </span>
+            </div>
+            <div class="card-actions">
+              ${isVapi ? `<button class="btn-copy" onclick="copyPrompt('${p.key}')">Copy</button>` : ''}
+              <button class="btn-save" onclick="savePrompt('${p.key}')">Save</button>
+              <button class="btn-reset" ${!p.isOverridden ? 'disabled' : ''} id="reset-${p.key}" onclick="resetPrompt('${p.key}')">Reset</button>
+            </div>
+          </div>
+          <textarea id="ta-${p.key}" rows="8">${escHtml(p.value)}</textarea>
+          <div class="card-footer">
+            <span class="updated-at" id="updated-${p.key}">
+              ${p.updatedAt ? '&#9679; Saved override &middot; ' + new Date(p.updatedAt).toLocaleString() : '&#10003; Using code default'}
+            </span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function savePrompt(key) {
+    const value = document.getElementById('ta-' + key).value;
+    const res = await fetch('/admin/prompts/' + encodeURIComponent(key), {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) { toast((await res.json()).error, true); return; }
+    const data = await res.json();
+    document.getElementById('badge-' + key).className = 'badge badge-custom';
+    document.getElementById('badge-' + key).textContent = 'Customized';
+    document.getElementById('reset-' + key).disabled = false;
+    document.getElementById('updated-' + key).textContent =
+      '● Saved override · ' + new Date(data.updatedAt).toLocaleString();
+    document.getElementById('card-' + key).classList.add('overridden');
+    toast('Prompt saved ✓');
+  }
+
+  async function resetPrompt(key) {
+    if (!confirm('Reset this prompt to the code default?')) return;
+    const res = await fetch('/admin/prompts/' + encodeURIComponent(key), {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!res.ok) { toast((await res.json()).error, true); return; }
+    const data = await res.json();
+    document.getElementById('ta-' + key).value = data.defaultValue;
+    document.getElementById('badge-' + key).className = 'badge badge-default';
+    document.getElementById('badge-' + key).textContent = 'Using default';
+    document.getElementById('reset-' + key).disabled = true;
+    document.getElementById('updated-' + key).textContent = '✓ Using code default';
+    document.getElementById('card-' + key).classList.remove('overridden');
+    toast('Reset to default ✓');
+  }
+
+  async function copyPrompt(key) {
+    const text = document.getElementById('ta-' + key).value;
+    await navigator.clipboard.writeText(text);
+    toast('Copied to clipboard ✓');
+  }
+
+  // ── Vapi tab ───────────────────────────────────────────────────────────────
+  let activeAssistantId = null;
+
+  async function loadVapiConfig() {
+    if (!password) return;
+    const res = await fetch('/admin/config', { headers: authHeaders() });
+    if (!res.ok) return;
+    const { vapi_active_assistant_id } = await res.json();
+    activeAssistantId = vapi_active_assistant_id;
+    updateActiveBox(vapi_active_assistant_id, null);
+  }
+
+  async function loadAssistants() {
+    if (!password) return;
+    document.getElementById('vapi-error').textContent = '';
+    document.getElementById('assistants-container').innerHTML =
+      '<p style="color:var(--muted)">Loading assistants from Vapi...</p>';
+
+    const res = await fetch('/admin/vapi/assistants', { headers: authHeaders() });
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('assistants-container').innerHTML = '';
+      document.getElementById('vapi-error').textContent = '⚠ ' + (data.error || 'Failed to load assistants');
+      return;
+    }
+
+    renderAssistants(data.assistants);
+  }
+
+  function renderAssistants(assistants) {
+    const container = document.getElementById('assistants-container');
+
+    if (!assistants.length) {
+      container.innerHTML = '<p style="color:var(--muted)">No assistants found on your Vapi account.</p>';
+      return;
+    }
+
+    const activeAsst = assistants.find(a => a.id === activeAssistantId);
+    if (activeAsst) updateActiveBox(activeAsst.id, activeAsst.name);
+
+    container.innerHTML = assistants.map(a => {
+      const isSelected = a.id === activeAssistantId;
+      return `
+        <div class="assistant-row ${isSelected ? 'active-row' : ''}" id="row-${a.id}">
+          <div>
+            <span class="asst-name">${escHtml(a.name)}</span>
+            <span class="asst-id">${a.id}</span>
+          </div>
+          ${isSelected
+            ? '<span class="badge-selected">Selected</span>'
+            : `<button class="btn-action" onclick="setActive('${a.id}','${escHtml(a.name).replace(/'/g, "\\'")}')">Set Active</button>`
+          }
+        </div>`;
+    }).join('');
+  }
+
+  async function setActive(id, name) {
+    const res = await fetch('/admin/config', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ vapi_active_assistant_id: id }),
+    });
+    if (!res.ok) { toast((await res.json()).error, true); return; }
+    activeAssistantId = id;
+    updateActiveBox(id, name);
+    loadAssistants();
+    toast('Active assistant updated ✓');
+  }
+
+  function updateActiveBox(id, name) {
+    if (!id) return;
+    document.getElementById('active-box').querySelector('.dot').style.background = 'var(--green)';
+    document.getElementById('active-name').textContent = name || id;
+    document.getElementById('active-id').textContent = name ? id : '';
+  }
+
+  function setAuthStatus(msg, isError) {
+    const el = document.getElementById('auth-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  }
+</script>
+</body>
+</html>
