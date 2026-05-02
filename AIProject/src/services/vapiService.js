@@ -8,7 +8,6 @@ export async function listAssistants() {
   const res = await fetch('https://api.vapi.ai/assistant', {
     headers: {
       Authorization: `Bearer ${env.VAPI_API_KEY}`,
-      'Content-Type': 'application/json',
     },
   });
 
