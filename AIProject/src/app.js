@@ -16,6 +16,7 @@ import healthRouter from './routes/health.js';
 import calendlyRouter from './routes/calendly.routes.js';
 import toolsRouter from './routes/tools.routes.js';
 import vapiRouter from './routes/vapi.routes.js';
+import adminRouter from './routes/admin.routes.js';
 
 export function createApp() {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp() {
   app.use('/calendly', calendlyRouter);
   app.use('/tools', toolsRouter);
   app.use('/vapi', vapiRouter);
+  app.use('/admin', adminRouter);
 
   // ── Fallbacks ─────────────────────────────────────────────────────────────
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
