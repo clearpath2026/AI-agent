@@ -48,7 +48,7 @@ router.put('/prompts/:key', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'value must be a non-empty string' });
   }
 
-  const row = await setConfig(key, value);
+  const row = await setConfig(key, value.trim());
   res.json({ key, value: row.value, updatedAt: row.updated_at });
 }));
 
