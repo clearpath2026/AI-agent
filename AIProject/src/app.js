@@ -29,7 +29,7 @@ export function createApp() {
   app.use(cors({
     origin: env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',').map((o) => o.trim()) : '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'x-vapi-secret'],
+    allowedHeaders: ['Content-Type', 'x-vapi-secret', 'x-admin-password'],
   }));
 
   // ── Reliability ───────────────────────────────────────────────────────────
