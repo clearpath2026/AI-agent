@@ -23,7 +23,9 @@ export function createApp() {
 
   // ── Security ──────────────────────────────────────────────────────────────
   // helmet sets safe HTTP headers and removes X-Powered-By
-  app.use(helmet());
+  // CSP disabled: this is a backend API — the only HTML served is the
+  // password-protected admin UI which uses inline <script>/<style>.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   // CORS — restrict to known origins in production via CORS_ORIGIN env var
   app.use(cors({
