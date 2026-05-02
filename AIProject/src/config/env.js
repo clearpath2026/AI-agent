@@ -36,6 +36,10 @@ export const env = {
   // ⚠️  Service role key bypasses RLS — server-side only, never expose to clients
   SUPABASE_URL: optional('SUPABASE_URL'),
   SUPABASE_SERVICE_ROLE_KEY: optional('SUPABASE_SERVICE_ROLE_KEY'),
+
+  // ── Admin UI ──────────────────────────────────────────────────
+  ADMIN_PASSWORD: optional('ADMIN_PASSWORD'),
+  VAPI_API_KEY: optional('VAPI_API_KEY'),
 };
 
 // Warn at startup for any missing important vars.
