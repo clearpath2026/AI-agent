@@ -131,3 +131,36 @@ export async function getRefillRequestsByStatus(status = 'needs_staff_review') {
   if (error) throw new Error(`[supabase] Query failed: ${error.message}`);
   return data;
 }
+
+// ── App config (key-value store for runtime settings) ─────────────────────────
+
+export async function getConfig(key) {
+  const { data, error } = await db()
+    .from('app_config')
+    .select('value, updated_at')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error) throw new Error(`[supabase] getConfig failed for "${key}": ${error.message}`);
+  return data; // { value, updated_at } or null if no override
+}
+
+export async function setConfig(key, value) {
+  const { data, error } = await db()
+    .from('app_config')
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    .select()
+    .single();
+
+  if (error) throw new Error(`[supabase] setConfig failed for "${key}": ${error.message}`);
+  return data;
+}
+
+export async function deleteConfig(key) {
+  const { error } = await db()
+    .from('app_config')
+    .delete()
+    .eq('key', key);
+
+  if (error) throw new Error(`[supabase] deleteConfig failed for "${key}": ${error.message}`);
+}
