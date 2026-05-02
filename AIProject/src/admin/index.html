@@ -310,6 +310,11 @@
       setAuthStatus('Wrong password', true);
       return;
     }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAuthStatus(data.error || `Server error ${res.status}`, true);
+      return;
+    }
     setAuthStatus('Unlocked', false);
     const { prompts } = await res.json();
     promptsLoaded = true;
