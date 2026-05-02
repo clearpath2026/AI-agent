@@ -55,3 +55,7 @@ export function createApp() {
 
   return app;
 }
+
+// Default export for Vercel — @vercel/node validates the default export of every
+// module in the import chain and requires it to be a function or http.Server.
+export default createApp();
