@@ -15,6 +15,9 @@ data/*.jsonl
 # Claude Code local settings (machine-specific)
 .claude/
 
+# Brainstorming session files
+.superpowers/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
