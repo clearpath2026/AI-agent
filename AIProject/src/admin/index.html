@@ -690,7 +690,7 @@
           </div>
           ${isSelected
             ? '<span class="badge-selected">Selected</span>'
-            : `<button class="btn-action" onclick="setActive('${a.id}','${escHtml(a.name).replace(/'/g, "\\'")}')">Set Active</button>`
+            : `<button class="btn-action" data-id="${escHtml(a.id)}" data-name="${escHtml(a.name)}" onclick="setActive(this.dataset.id, this.dataset.name)">Set Active</button>`
           }
         </div>`;
     }).join('');
@@ -726,7 +726,13 @@
 
   async function loadOutboundAssistants() {
     const res = await fetch('/admin/vapi/assistants', { headers: authHeaders() });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Failed to load agents';
+      opt.disabled = true;
+      document.getElementById('outbound-agent-select').appendChild(opt);
+      return;
+    }
     const { assistants } = await res.json();
     const sel = document.getElementById('outbound-agent-select');
     // Remove previously populated options (keep placeholder)
@@ -741,7 +747,13 @@
 
   async function loadOutboundPhoneNumbers() {
     const res = await fetch('/admin/vapi/phone-numbers', { headers: authHeaders() });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Failed to load phone numbers';
+      opt.disabled = true;
+      document.getElementById('outbound-phone-select').appendChild(opt);
+      return;
+    }
     const { phoneNumbers } = await res.json();
     const sel = document.getElementById('outbound-phone-select');
     // Remove previously populated options (keep placeholder)
