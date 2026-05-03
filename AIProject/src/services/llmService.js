@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai';
 import { env } from '../config/env.js';
+import { getRuntimeKey } from '../config/apiConfig.js';
 import { getConfig } from './supabaseService.js';
 
 // ─── Provider Implementations ────────────────────────────────────────────────
@@ -58,8 +59,9 @@ function createProvider() {
   const name = env.LLM_PROVIDER;
 
   if (name === 'openai') {
-    if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
-    return new OpenAIProvider(env.OPENAI_API_KEY, env.OPENAI_MODEL);
+    const apiKey = getRuntimeKey('OPENAI_API_KEY');
+    if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
+    return new OpenAIProvider(apiKey, getRuntimeKey('OPENAI_MODEL') ?? env.OPENAI_MODEL);
   }
 
   // Future: 'anthropic' | 'groq' | 'gemini' | 'local'
@@ -71,6 +73,10 @@ let _provider = null;
 function getProvider() {
   if (!_provider) _provider = createProvider();
   return _provider;
+}
+
+export function resetProvider() {
+  _provider = null;
 }
 
 // ─── Prompt Defaults ──────────────────────────────────────────────────────────
