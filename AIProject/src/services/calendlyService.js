@@ -1,10 +1,13 @@
 import { config } from '../config/index.js';
+import { getRuntimeKey } from '../config/apiConfig.js';
 
 // ── Internal helpers ──────────────────────────────────────────
 
 function authHeaders() {
+  const token = getRuntimeKey('CALENDLY_API_TOKEN');
+  if (!token) throw new Error('CALENDLY_API_TOKEN is not configured');
   return {
-    Authorization: `Bearer ${config.CALENDLY_API_TOKEN}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 }
@@ -93,10 +96,10 @@ export async function createSchedulingLink(eventTypeUri) {
  */
 export async function getBookingUrl(appointmentType) {
   const staticUrls = {
-    new_patient: config.CALENDLY_URL_NEW_PATIENT,
-    existing_patient: config.CALENDLY_URL_EXISTING_PATIENT,
-    sales: config.CALENDLY_URL_SALES,
-    support: config.CALENDLY_URL_SUPPORT,
+    new_patient: getRuntimeKey('CALENDLY_URL_NEW_PATIENT'),
+    existing_patient: getRuntimeKey('CALENDLY_URL_EXISTING_PATIENT'),
+    sales: getRuntimeKey('CALENDLY_URL_SALES'),
+    support: getRuntimeKey('CALENDLY_URL_SUPPORT'),
   };
 
   return staticUrls[appointmentType] || null;

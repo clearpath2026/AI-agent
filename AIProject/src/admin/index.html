@@ -162,7 +162,7 @@
     .toast.error { border-left-color: var(--red); }
     .toast.show  { opacity: 1; }
 
-    /* Vapi tab */
+    /* Vapi / Inbound Agent tab */
     .section-label { color: var(--muted); font-size: 12px; letter-spacing: .05em; margin-bottom: 8px; text-transform: uppercase; }
     .active-box {
       align-items: center;
@@ -195,6 +195,42 @@
 
     .vapi-toolbar { align-items: center; display: flex; gap: 10px; margin-bottom: 16px; }
     #vapi-error { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+    /* Prompts section-header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-header h2 { font-size: 15px; font-weight: 700; }
+
+    /* API Keys tab */
+    .api-group { background: var(--surface); border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .group-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .group-title { font-weight: 600; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .health-badge { font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; background: var(--surface2); color: var(--muted); }
+    .health-ok { background: rgba(74,222,128,0.15); color: var(--green); }
+    .health-error { background: rgba(248,113,113,0.15); color: var(--red); }
+    .health-missing { color: var(--muted); }
+    .key-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .key-row:last-child { border-bottom: none; }
+    .key-label { width: 180px; font-size: 0.85rem; color: var(--muted); flex-shrink: 0; }
+    .key-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; font-family: monospace; }
+    .source-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
+    .source-db { background: rgba(99,102,241,0.2); color: #818cf8; }
+    .source-env { background: rgba(74,222,128,0.15); color: var(--green); }
+    .source-missing { background: rgba(248,113,113,0.15); color: var(--red); }
+
+    /* Phone bar (Inbound Agent tab) */
+    .phone-bar { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+    .phone-number { font-family: monospace; font-size: 1.1rem; font-weight: 600; }
+    .live-badge { font-size: 0.85rem; color: var(--muted); }
+
+    /* Outbound tab */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .card h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 14px; }
+    .form-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 120px; font-size: 0.85rem; color: var(--muted); padding-top: 8px; flex-shrink: 0; }
+    .form-row select, .form-row input, .form-row textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 0.85rem; }
+    .form-row textarea { resize: vertical; font-family: inherit; }
+    .btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    .btn-danger:hover { background: rgba(248,113,113,0.25); }
   </style>
 </head>
 <body>
@@ -209,15 +245,64 @@
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('prompts')">Prompts</button>
-  <button class="tab-btn" onclick="switchTab('vapi')">Vapi Assistant</button>
+  <button class="tab-btn active" id="tab-btn-prompts" onclick="switchTab('prompts')">Prompts</button>
+  <button class="tab-btn" id="tab-btn-apis" onclick="switchTab('apis')">API Keys</button>
+  <button class="tab-btn" id="tab-btn-vapi" onclick="switchTab('vapi')">Inbound Agent</button>
+  <button class="tab-btn" id="tab-btn-outbound" onclick="switchTab('outbound')">Outbound</button>
 </div>
 
+<!-- Tab 1: Prompts -->
 <div id="tab-prompts" class="tab-panel active">
   <div id="prompts-container"><p style="color:var(--muted);padding:16px 0;">Enter your admin password to load prompts.</p></div>
 </div>
 
+<!-- Tab 2: API Keys -->
+<div id="tab-apis" class="tab-panel">
+  <div class="section-header">
+    <h2>API Keys</h2>
+    <button class="btn-action" onclick="checkAllHealth()">&#10003; Check All</button>
+  </div>
+
+  <div class="api-group" id="group-openai">
+    <div class="group-header">
+      <span class="group-title">OpenAI</span>
+      <span class="health-badge" id="health-openai">&#9679; &mdash;</span>
+    </div>
+    <div id="keys-openai"></div>
+  </div>
+
+  <div class="api-group" id="group-twilio">
+    <div class="group-header">
+      <span class="group-title">Twilio</span>
+      <span class="health-badge" id="health-twilio">&#9679; &mdash;</span>
+    </div>
+    <div id="keys-twilio"></div>
+  </div>
+
+  <div class="api-group" id="group-calendly">
+    <div class="group-header">
+      <span class="group-title">Calendly</span>
+      <span class="health-badge" id="health-calendly">&#9679; &mdash;</span>
+    </div>
+    <div id="keys-calendly"></div>
+  </div>
+
+  <div class="api-group" id="group-vapi">
+    <div class="group-header">
+      <span class="group-title">Vapi</span>
+      <span class="health-badge" id="health-vapi">&#9679; &mdash;</span>
+    </div>
+    <div id="keys-vapi"></div>
+  </div>
+</div>
+
+<!-- Tab 3: Inbound Agent -->
 <div id="tab-vapi" class="tab-panel">
+  <div class="phone-bar" id="phone-bar">
+    <span class="phone-number" id="inbound-phone">&mdash;</span>
+    <span class="live-badge" id="inbound-live-badge">&#9679; &mdash;</span>
+  </div>
+
   <p class="section-label" style="margin-bottom:6px">Active assistant</p>
   <div class="active-box" id="active-box">
     <div class="dot" style="background:var(--muted)"></div>
@@ -231,6 +316,47 @@
   </div>
   <div id="assistants-container"><p style="color:var(--muted);">Enter your admin password and switch to this tab to load assistants.</p></div>
   <div id="vapi-error"></div>
+</div>
+
+<!-- Tab 4: Outbound -->
+<div id="tab-outbound" class="tab-panel">
+  <h2 style="font-size:15px; font-weight:700; margin-bottom:16px;">Outbound Calls</h2>
+
+  <div class="outbound-config card">
+    <h3>Configuration</h3>
+
+    <div class="form-row">
+      <label>Agent</label>
+      <select id="outbound-agent-select">
+        <option value="">&mdash; select agent &mdash;</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Call From</label>
+      <select id="outbound-phone-select">
+        <option value="">&mdash; select phone number &mdash;</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>First Message</label>
+      <textarea id="outbound-first-message" rows="3" placeholder="What the AI says when the call is picked up…"></textarea>
+    </div>
+
+    <button class="btn-action" onclick="saveOutboundConfig()">Save Config</button>
+    <span id="outbound-config-status" style="margin-left:12px; font-size:0.85rem; color:var(--muted)"></span>
+  </div>
+
+  <div class="outbound-call card" style="margin-top:16px">
+    <h3>Test Outbound Call</h3>
+    <div class="form-row">
+      <label>To Number</label>
+      <input type="tel" id="outbound-to-number" placeholder="+1 6185551234" style="flex:1">
+    </div>
+    <button class="btn-danger" onclick="placeOutboundCall()">&#9742; Call Now</button>
+    <div id="outbound-call-result" style="margin-top:8px; font-size:0.85rem"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -274,21 +400,27 @@
   }
 
   async function loadAll() {
-    await Promise.all([loadPrompts(), loadVapiConfig()]);
-    if (document.getElementById('tab-vapi').classList.contains('active')) {
-      loadAssistants();
-    }
+    await Promise.all([loadPrompts(), loadApis(), loadVapiConfig()]);
+    const activeTab = ['prompts','apis','vapi','outbound'].find(t =>
+      document.getElementById('tab-btn-' + t)?.classList.contains('active')
+    ) || 'prompts';
+    if (activeTab === 'vapi') loadAssistants();
+    if (activeTab === 'outbound') loadOutboundTab();
   }
 
   // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(name) {
+    const tabs = ['prompts','apis','vapi','outbound'];
     document.querySelectorAll('.tab-btn').forEach((b, i) =>
-      b.classList.toggle('active', ['prompts', 'vapi'][i] === name));
+      b.classList.toggle('active', tabs[i] === name));
     document.querySelectorAll('.tab-panel').forEach(p =>
       p.classList.toggle('active', p.id === 'tab-' + name));
 
     if (name === 'vapi' && password && document.getElementById('assistants-container').children.length <= 1) {
       loadAssistants();
+    }
+    if (name === 'outbound' && password) {
+      loadOutboundTab();
     }
   }
 
@@ -300,6 +432,18 @@
     el.className = 'toast show' + (isError ? ' error' : '');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ── Auth status ────────────────────────────────────────────────────────────
+  function setAuthStatus(msg, isError) {
+    const el = document.getElementById('auth-status');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  }
+
+  // ── Escape HTML helper ─────────────────────────────────────────────────────
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   // ── Prompts tab ────────────────────────────────────────────────────────────
@@ -352,10 +496,6 @@
     }).join('');
   }
 
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
   async function savePrompt(key) {
     const value = document.getElementById('ta-' + key).value;
     const res = await fetch('/admin/prompts/' + encodeURIComponent(key), {
@@ -397,16 +537,118 @@
     toast('Copied to clipboard ✓');
   }
 
-  // ── Vapi tab ───────────────────────────────────────────────────────────────
+  // ── API Keys tab ───────────────────────────────────────────────────────────
+  const API_GROUP_LABELS = { openai: 'OpenAI', twilio: 'Twilio', calendly: 'Calendly', vapi: 'Vapi' };
+
+  async function loadApis() {
+    if (!password) return;
+    const res = await fetch('/admin/apis', { headers: authHeaders() });
+    if (res.status === 401) { setAuthStatus('Wrong password', true); return; }
+    if (!res.ok) { const d = await res.json().catch(()=>({})); setAuthStatus(d.error || `Error ${res.status}`, true); return; }
+    setAuthStatus('Unlocked', false);
+    const { apis } = await res.json();
+    renderApis(apis);
+  }
+
+  function renderApis(apis) {
+    const groups = {};
+    apis.forEach(api => {
+      if (!groups[api.group]) groups[api.group] = [];
+      groups[api.group].push(api);
+    });
+
+    ['openai', 'twilio', 'calendly', 'vapi'].forEach(group => {
+      const container = document.getElementById('keys-' + group);
+      if (!container || !groups[group]) return;
+      container.innerHTML = groups[group].map(api => `
+        <div class="key-row" id="keyrow-${api.key}">
+          <label class="key-label">${escHtml(api.label)}</label>
+          <input type="password"
+                 id="keyinput-${api.key}"
+                 class="key-input"
+                 placeholder="${api.hasValue ? '••••••••' : 'Not set'}"
+                 autocomplete="off">
+          <span class="source-badge source-${api.source}" id="keysrc-${api.key}">${api.source.toUpperCase()}</span>
+          <button class="btn-save" onclick="saveApiKey('${api.key}')">Save</button>
+          <button class="btn-reset" onclick="clearApiKey('${api.key}')" ${!api.hasValue ? 'disabled' : ''} id="keyclear-${api.key}">Clear</button>
+        </div>
+      `).join('');
+    });
+  }
+
+  async function saveApiKey(key) {
+    const input = document.getElementById('keyinput-' + key);
+    const value = input.value.trim();
+    if (!value) { toast('Enter a value first', true); return; }
+    const res = await fetch('/admin/apis/' + encodeURIComponent(key), {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); toast(d.error || 'Save failed', true); return; }
+    input.value = '';
+    input.placeholder = '••••••••';
+    document.getElementById('keysrc-' + key).textContent = 'DB';
+    document.getElementById('keysrc-' + key).className = 'source-badge source-db';
+    document.getElementById('keyclear-' + key).disabled = false;
+    toast('Saved ✓');
+  }
+
+  async function clearApiKey(key) {
+    if (!confirm(`Clear the saved value for ${key}? It will fall back to the environment variable.`)) return;
+    const res = await fetch('/admin/apis/' + encodeURIComponent(key), {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!res.ok) { toast('Clear failed', true); return; }
+    const { source } = await res.json();
+    document.getElementById('keyinput-' + key).placeholder = source === 'env' ? '••••••••' : 'Not set';
+    document.getElementById('keysrc-' + key).textContent = source.toUpperCase();
+    document.getElementById('keysrc-' + key).className = 'source-badge source-' + source;
+    document.getElementById('keyclear-' + key).disabled = source === 'missing';
+    toast('Cleared ✓');
+  }
+
+  async function checkAllHealth() {
+    ['openai','twilio','calendly','vapi'].forEach(g => {
+      document.getElementById('health-' + g).textContent = '⏳ Checking…';
+      document.getElementById('health-' + g).className = 'health-badge';
+    });
+    const res = await fetch('/admin/apis/health', { headers: authHeaders() });
+    if (!res.ok) { toast('Health check failed', true); return; }
+    const data = await res.json();
+    ['openai','twilio','calendly','vapi'].forEach(g => {
+      const r = data[g];
+      const el = document.getElementById('health-' + g);
+      if (r.status === 'ok') {
+        el.textContent = '✓ Connected';
+        el.className = 'health-badge health-ok';
+      } else if (r.status === 'missing') {
+        el.textContent = '— Not configured';
+        el.className = 'health-badge health-missing';
+      } else {
+        el.textContent = '✗ ' + (r.message || 'Error');
+        el.className = 'health-badge health-error';
+      }
+    });
+  }
+
+  // ── Inbound Agent (Vapi) tab ───────────────────────────────────────────────
   let activeAssistantId = null;
 
   async function loadVapiConfig() {
     if (!password) return;
     const res = await fetch('/admin/config', { headers: authHeaders() });
     if (!res.ok) return;
-    const { vapi_active_assistant_id } = await res.json();
+    const { vapi_active_assistant_id, twilio_phone_number } = await res.json();
     activeAssistantId = vapi_active_assistant_id;
     updateActiveBox(vapi_active_assistant_id, null);
+
+    if (twilio_phone_number) {
+      document.getElementById('inbound-phone').textContent = twilio_phone_number;
+      document.getElementById('inbound-live-badge').textContent = '● Live';
+      document.getElementById('inbound-live-badge').style.color = 'var(--green)';
+    }
   }
 
   async function loadAssistants() {
@@ -448,7 +690,7 @@
           </div>
           ${isSelected
             ? '<span class="badge-selected">Selected</span>'
-            : `<button class="btn-action" onclick="setActive('${a.id}','${escHtml(a.name).replace(/'/g, "\\'")}')">Set Active</button>`
+            : `<button class="btn-action" data-id="${escHtml(a.id)}" data-name="${escHtml(a.name)}" onclick="setActive(this.dataset.id, this.dataset.name)">Set Active</button>`
           }
         </div>`;
     }).join('');
@@ -474,10 +716,102 @@
     document.getElementById('active-id').textContent = name ? id : '';
   }
 
-  function setAuthStatus(msg, isError) {
-    const el = document.getElementById('auth-status');
-    el.textContent = msg;
-    el.style.color = isError ? 'var(--red)' : 'var(--green)';
+  // ── Outbound tab ───────────────────────────────────────────────────────────
+  async function loadOutboundTab() {
+    if (!password) return;
+    loadOutboundAssistants();
+    loadOutboundPhoneNumbers();
+    loadOutboundConfig();
+  }
+
+  async function loadOutboundAssistants() {
+    const res = await fetch('/admin/vapi/assistants', { headers: authHeaders() });
+    if (!res.ok) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Failed to load agents';
+      opt.disabled = true;
+      document.getElementById('outbound-agent-select').appendChild(opt);
+      return;
+    }
+    const { assistants } = await res.json();
+    const sel = document.getElementById('outbound-agent-select');
+    // Remove previously populated options (keep placeholder)
+    while (sel.options.length > 1) sel.remove(1);
+    assistants.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  async function loadOutboundPhoneNumbers() {
+    const res = await fetch('/admin/vapi/phone-numbers', { headers: authHeaders() });
+    if (!res.ok) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Failed to load phone numbers';
+      opt.disabled = true;
+      document.getElementById('outbound-phone-select').appendChild(opt);
+      return;
+    }
+    const { phoneNumbers } = await res.json();
+    const sel = document.getElementById('outbound-phone-select');
+    // Remove previously populated options (keep placeholder)
+    while (sel.options.length > 1) sel.remove(1);
+    phoneNumbers.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = (p.number || p.name || p.id);
+      sel.appendChild(opt);
+    });
+  }
+
+  async function loadOutboundConfig() {
+    const res = await fetch('/admin/outbound/config', { headers: authHeaders() });
+    if (!res.ok) return;
+    const { assistant_id, phone_number_id, first_message } = await res.json();
+    if (assistant_id) document.getElementById('outbound-agent-select').value = assistant_id;
+    if (phone_number_id) document.getElementById('outbound-phone-select').value = phone_number_id;
+    if (first_message) document.getElementById('outbound-first-message').value = first_message;
+  }
+
+  async function saveOutboundConfig() {
+    const assistant_id = document.getElementById('outbound-agent-select').value;
+    const phone_number_id = document.getElementById('outbound-phone-select').value;
+    const first_message = document.getElementById('outbound-first-message').value.trim();
+
+    const res = await fetch('/admin/outbound/config', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ assistant_id: assistant_id || null, phone_number_id: phone_number_id || null, first_message: first_message || null }),
+    });
+    const statusEl = document.getElementById('outbound-config-status');
+    if (!res.ok) { statusEl.textContent = 'Save failed'; statusEl.style.color = 'var(--red)'; return; }
+    statusEl.textContent = 'Saved ✓';
+    statusEl.style.color = 'var(--green)';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  }
+
+  async function placeOutboundCall() {
+    const to_number = document.getElementById('outbound-to-number').value.trim();
+    if (!to_number) { toast('Enter a phone number', true); return; }
+    const resultEl = document.getElementById('outbound-call-result');
+    resultEl.textContent = 'Placing call…';
+    resultEl.style.color = 'var(--muted)';
+
+    const res = await fetch('/admin/outbound/call', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ to_number }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      resultEl.textContent = '✗ ' + (data.error || 'Call failed');
+      resultEl.style.color = 'var(--red)';
+    } else {
+      resultEl.textContent = '✓ Call placed — ID: ' + (data.callId || 'unknown');
+      resultEl.style.color = 'var(--green)';
+    }
   }
 </script>
 </body>
