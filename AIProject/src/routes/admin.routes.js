@@ -4,12 +4,10 @@ import { dirname, join } from 'path';
 import { requireAdminPassword } from '../middleware/adminAuth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getConfig, setConfig, deleteConfig } from '../services/supabaseService.js';
-import { listAssistants } from '../services/vapiService.js';
-import { PROMPT_DEFAULTS } from '../services/llmService.js';
+import { listAssistants, listPhoneNumbers, createOutboundCall } from '../services/vapiService.js';
+import { PROMPT_DEFAULTS, resetProvider as resetLlmProvider } from '../services/llmService.js';
 import { getRuntimeKey, setRuntimeKey, API_KEYS } from '../config/apiConfig.js';
 import { resetClient as resetTwilioClient } from '../services/twilioService.js';
-import { resetProvider as resetLlmProvider } from '../services/llmService.js';
-import { listPhoneNumbers, createOutboundCall } from '../services/vapiService.js';
 
 const API_KEY_META = {
   OPENAI_API_KEY:                { label: 'API Key',              group: 'openai' },
