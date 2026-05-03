@@ -10,6 +10,7 @@ import helmet from 'helmet';
 import { env } from './config/env.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { loadRuntimeKeysFromDb } from './config/apiConfig.js';
 
 // Routes
 import healthRouter from './routes/health.js';
@@ -20,6 +21,8 @@ import adminRouter from './routes/admin.routes.js';
 
 export function createApp() {
   const app = express();
+
+  loadRuntimeKeysFromDb().catch((err) => console.error('[apiConfig] DB key load failed:', err.message));
 
   // ── Security ──────────────────────────────────────────────────────────────
   // helmet sets safe HTTP headers and removes X-Powered-By
