@@ -4,8 +4,10 @@ import { getRuntimeKey } from '../config/apiConfig.js';
 // ── Internal helpers ──────────────────────────────────────────
 
 function authHeaders() {
+  const token = getRuntimeKey('CALENDLY_API_TOKEN');
+  if (!token) throw new Error('CALENDLY_API_TOKEN is not configured');
   return {
-    Authorization: `Bearer ${getRuntimeKey('CALENDLY_API_TOKEN')}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 }
