@@ -132,6 +132,40 @@ export async function getRefillRequestsByStatus(status = 'needs_staff_review') {
   return data;
 }
 
+export async function getLogs(table, { limit = 20, offset = 0, phone, from, to } = {}) {
+  let query = db()
+    .from(table)
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  if (phone) query = query.ilike('phone', `%${phone}%`);
+  if (from)  query = query.gte('created_at', from);
+  if (to)    query = query.lte('created_at', to);
+
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    throw new Error(`[supabase] getLogs failed on "${table}": ${error.message}`);
+  }
+  return { rows: data, total: count };
+}
+
+export async function updateRecordStatus(table, id, status) {
+  const { data, error } = await db()
+    .from(table)
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`[supabase] updateRecordStatus failed on "${table}": ${error.message}`);
+  }
+  return data;
+}
+
 // ── App config (key-value store for runtime settings) ─────────────────────────
 
 export async function getConfig(key) {
