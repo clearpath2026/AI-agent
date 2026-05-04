@@ -33,7 +33,7 @@ export function createApp() {
   // CORS — restrict to known origins in production via CORS_ORIGIN env var
   app.use(cors({
     origin: env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',').map((o) => o.trim()) : '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'x-vapi-secret', 'x-admin-password'],
   }));
 

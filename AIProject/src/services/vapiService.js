@@ -55,8 +55,34 @@ export async function listPhoneNumbers() {
     id: p.id,
     number: p.number ?? null,
     name: p.name ?? '(unnamed)',
+    assistantId: p.assistantId ?? null,
     createdAt: p.createdAt ?? null,
   }));
+}
+
+export async function updatePhoneNumberAssistant(phoneNumberId, assistantId) {
+  const apiKey = getRuntimeKey('VAPI_API_KEY');
+  if (!apiKey) {
+    throw new Error('VAPI_API_KEY is not configured');
+  }
+
+  const res = await fetch(`https://api.vapi.ai/phone-number/${phoneNumberId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ assistantId: assistantId || null }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(`Vapi API error ${res.status}: ${body.message || 'Request failed'}`);
+    err.status = res.status;
+    throw err;
+  }
+
+  return res.json();
 }
 
 export async function createOutboundCall({ toNumber, assistantId, phoneNumberId, firstMessage }) {

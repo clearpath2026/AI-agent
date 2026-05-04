@@ -4,7 +4,7 @@ import { dirname, join } from 'path';
 import { requireAdminPassword } from '../middleware/adminAuth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getConfig, setConfig, deleteConfig, getLogs, updateRecordStatus } from '../services/supabaseService.js';
-import { listAssistants, listPhoneNumbers, createOutboundCall } from '../services/vapiService.js';
+import { listAssistants, listPhoneNumbers, createOutboundCall, updatePhoneNumberAssistant } from '../services/vapiService.js';
 import { PROMPT_DEFAULTS, resetProvider as resetLlmProvider } from '../services/llmService.js';
 import { getRuntimeKey, setRuntimeKey, API_KEYS } from '../config/apiConfig.js';
 import { resetClient as resetTwilioClient } from '../services/twilioService.js';
@@ -263,6 +263,19 @@ router.get('/vapi/phone-numbers', asyncHandler(async (_req, res) => {
   try {
     const phoneNumbers = await listPhoneNumbers();
     res.json({ phoneNumbers });
+  } catch (err) {
+    res.status(err.status ?? 502).json({ error: err.message });
+  }
+}));
+
+// PATCH /admin/vapi/phone-numbers/:id — assign assistant to a phone number
+router.patch('/vapi/phone-numbers/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { assistantId } = req.body;
+
+  try {
+    const updated = await updatePhoneNumberAssistant(id, assistantId ?? null);
+    res.json({ id, assistantId: updated.assistantId ?? assistantId ?? null });
   } catch (err) {
     res.status(err.status ?? 502).json({ error: err.message });
   }

@@ -314,25 +314,13 @@
 
 <!-- Tab 3: Inbound Agent -->
 <div id="tab-vapi" class="tab-panel">
-  <div class="phone-bar" id="phone-bar">
-    <span class="live-badge" id="inbound-live-badge">&#9679; &mdash;</span>
-    <input type="tel" id="inbound-phone" class="key-input" placeholder="+1 6185551234" style="max-width:200px; font-family:monospace;">
-    <button class="btn-save" onclick="saveInboundPhone()">Save</button>
+  <div class="section-header">
+    <h2>Inbound Phone Numbers</h2>
+    <button class="btn-refresh" onclick="loadInboundTab()">&#8635; Refresh</button>
   </div>
-
-  <p class="section-label" style="margin-bottom:6px">Active assistant</p>
-  <div class="active-box" id="active-box">
-    <div class="dot" style="background:var(--muted)"></div>
-    <span class="active-name" id="active-name">Not set</span>
-    <span class="active-id" id="active-id"></span>
-  </div>
-
-  <div class="vapi-toolbar">
-    <p class="section-label" style="margin:0">All assistants on your Vapi account</p>
-    <button class="btn-refresh" onclick="loadAssistants()">&#8635; Refresh</button>
-  </div>
-  <div id="assistants-container"><p style="color:var(--muted);">Enter your admin password and switch to this tab to load assistants.</p></div>
-  <div id="vapi-error"></div>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Each number routes calls to its assigned assistant. Numbers are imported from Twilio in your Vapi dashboard.</p>
+  <div id="inbound-numbers-container"><p style="color:var(--muted);">Unlock to load phone numbers.</p></div>
+  <div id="inbound-error" style="color:var(--red);font-size:13px;margin-top:8px;"></div>
 </div>
 
 <!-- Tab 4: Outbound -->
@@ -445,11 +433,11 @@
   }
 
   async function loadAll() {
-    await Promise.all([loadPrompts(), loadApis(), loadVapiConfig()]);
+    await Promise.all([loadPrompts(), loadApis()]);
     const activeTab = ['prompts','apis','vapi','outbound','logs'].find(t =>
       document.getElementById('tab-btn-' + t)?.classList.contains('active')
     ) || 'prompts';
-    if (activeTab === 'vapi') loadAssistants();
+    if (activeTab === 'vapi') loadInboundTab();
     if (activeTab === 'outbound') loadOutboundTab();
     if (activeTab === 'logs') loadLogs();
   }
@@ -462,8 +450,8 @@
     document.querySelectorAll('.tab-panel').forEach(p =>
       p.classList.toggle('active', p.id === 'tab-' + name));
 
-    if (name === 'vapi' && password && document.getElementById('assistants-container').children.length <= 1) {
-      loadAssistants();
+    if (name === 'vapi' && password) {
+      loadInboundTab();
     }
     if (name === 'outbound' && password) {
       loadOutboundTab();
@@ -682,104 +670,83 @@
     });
   }
 
-  // ── Inbound Agent (Vapi) tab ───────────────────────────────────────────────
-  let activeAssistantId = null;
+  // ── Inbound Agent tab ─────────────────────────────────────────────────────
+  let _inboundAssistants = [];
 
-  async function loadVapiConfig() {
+  async function loadInboundTab() {
     if (!password) return;
-    const res = await fetch('/admin/config', { headers: authHeaders() });
-    if (!res.ok) return;
-    const { vapi_active_assistant_id, twilio_phone_number } = await res.json();
-    activeAssistantId = vapi_active_assistant_id;
-    updateActiveBox(vapi_active_assistant_id, null);
+    document.getElementById('inbound-error').textContent = '';
+    document.getElementById('inbound-numbers-container').innerHTML =
+      '<p style="color:var(--muted)">Loading…</p>';
 
-    const phoneEl = document.getElementById('inbound-phone');
-    if (twilio_phone_number) {
-      phoneEl.value = twilio_phone_number;
-      document.getElementById('inbound-live-badge').textContent = '● Live';
-      document.getElementById('inbound-live-badge').style.color = 'var(--green)';
-    } else {
-      phoneEl.value = '';
+    const [numbersRes, assistantsRes] = await Promise.all([
+      fetch('/admin/vapi/phone-numbers', { headers: authHeaders() }),
+      fetch('/admin/vapi/assistants',    { headers: authHeaders() }),
+    ]);
+
+    if (!numbersRes.ok || !assistantsRes.ok) {
+      const err = !numbersRes.ok ? await numbersRes.json().catch(()=>({}))
+                                 : await assistantsRes.json().catch(()=>({}));
+      document.getElementById('inbound-numbers-container').innerHTML = '';
+      document.getElementById('inbound-error').textContent = '⚠ ' + (err.error || 'Failed to load');
+      return;
     }
+
+    const { phoneNumbers } = await numbersRes.json();
+    const { assistants }   = await assistantsRes.json();
+    _inboundAssistants = assistants;
+    renderInboundNumbers(phoneNumbers, assistants);
   }
 
-  async function saveInboundPhone() {
-    const value = document.getElementById('inbound-phone').value.trim();
-    if (!value) { toast('Enter a phone number', true); return; }
-    const res = await fetch('/admin/apis/TWILIO_PHONE_NUMBER', {
-      method: 'PUT',
-      headers: authHeaders(),
-      body: JSON.stringify({ value }),
+  function renderInboundNumbers(phoneNumbers, assistants) {
+    const container = document.getElementById('inbound-numbers-container');
+    if (!phoneNumbers.length) {
+      container.innerHTML = '<p style="color:var(--muted)">No phone numbers found. Import a Twilio number in your Vapi dashboard first.</p>';
+      return;
+    }
+
+    const assistantOptions = assistants.map(a =>
+      `<option value="${escHtml(a.id)}">${escHtml(a.name)}</option>`
+    ).join('');
+
+    container.innerHTML = phoneNumbers.map(p => `
+      <div class="assistant-row" id="pnrow-${escHtml(p.id)}">
+        <div>
+          <span class="asst-name">${escHtml(p.number || p.name)}</span>
+          <span class="asst-id">${escHtml(p.id)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select class="key-input" id="pn-asst-${escHtml(p.id)}" style="width:200px">
+            <option value="">— No assistant —</option>
+            ${assistantOptions}
+          </select>
+          <button class="btn-save" data-id="${escHtml(p.id)}" onclick="saveInboundAssistant(this.dataset.id)">Save</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Pre-select current assignments
+    phoneNumbers.forEach(p => {
+      if (p.assistantId) {
+        const sel = document.getElementById('pn-asst-' + p.id);
+        if (sel) sel.value = p.assistantId;
+      }
     });
-    if (!res.ok) { toast((await res.json().catch(()=>({}))).error || 'Save failed', true); return; }
-    document.getElementById('inbound-live-badge').textContent = '● Live';
-    document.getElementById('inbound-live-badge').style.color = 'var(--green)';
-    toast('Phone number saved ✓');
   }
 
-  async function loadAssistants() {
-    if (!password) return;
-    document.getElementById('vapi-error').textContent = '';
-    document.getElementById('assistants-container').innerHTML =
-      '<p style="color:var(--muted)">Loading assistants from Vapi...</p>';
-
-    const res = await fetch('/admin/vapi/assistants', { headers: authHeaders() });
-    const data = await res.json();
-
+  async function saveInboundAssistant(phoneNumberId) {
+    const assistantId = document.getElementById('pn-asst-' + phoneNumberId).value || null;
+    const res = await fetch('/admin/vapi/phone-numbers/' + encodeURIComponent(phoneNumberId), {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ assistantId }),
+    });
     if (!res.ok) {
-      document.getElementById('assistants-container').innerHTML = '';
-      document.getElementById('vapi-error').textContent = '⚠ ' + (data.error || 'Failed to load assistants');
-      return;
+      const d = await res.json().catch(()=>({}));
+      toast(d.error || 'Save failed', true);
+    } else {
+      toast('Assistant assigned ✓');
     }
-
-    renderAssistants(data.assistants);
-  }
-
-  function renderAssistants(assistants) {
-    const container = document.getElementById('assistants-container');
-
-    if (!assistants.length) {
-      container.innerHTML = '<p style="color:var(--muted)">No assistants found on your Vapi account.</p>';
-      return;
-    }
-
-    const activeAsst = assistants.find(a => a.id === activeAssistantId);
-    if (activeAsst) updateActiveBox(activeAsst.id, activeAsst.name);
-
-    container.innerHTML = assistants.map(a => {
-      const isSelected = a.id === activeAssistantId;
-      return `
-        <div class="assistant-row ${isSelected ? 'active-row' : ''}" id="row-${a.id}">
-          <div>
-            <span class="asst-name">${escHtml(a.name)}</span>
-            <span class="asst-id">${a.id}</span>
-          </div>
-          ${isSelected
-            ? '<span class="badge-selected">Selected</span>'
-            : `<button class="btn-action" data-id="${escHtml(a.id)}" data-name="${escHtml(a.name)}" onclick="setActive(this.dataset.id, this.dataset.name)">Set Active</button>`
-          }
-        </div>`;
-    }).join('');
-  }
-
-  async function setActive(id, name) {
-    const res = await fetch('/admin/config', {
-      method: 'PUT',
-      headers: authHeaders(),
-      body: JSON.stringify({ vapi_active_assistant_id: id }),
-    });
-    if (!res.ok) { toast((await res.json()).error, true); return; }
-    activeAssistantId = id;
-    updateActiveBox(id, name);
-    loadAssistants();
-    toast('Active assistant updated ✓');
-  }
-
-  function updateActiveBox(id, name) {
-    if (!id) return;
-    document.getElementById('active-box').querySelector('.dot').style.background = 'var(--green)';
-    document.getElementById('active-name').textContent = name || id;
-    document.getElementById('active-id').textContent = name ? id : '';
   }
 
   // ── Outbound tab ───────────────────────────────────────────────────────────
