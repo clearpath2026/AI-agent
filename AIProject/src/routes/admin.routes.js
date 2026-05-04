@@ -5,7 +5,7 @@ import { requireAdminPassword } from '../middleware/adminAuth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getConfig, setConfig, deleteConfig, getLogs, updateRecordStatus } from '../services/supabaseService.js';
 import { listAssistants, listPhoneNumbers, createOutboundCall, updatePhoneNumberAssistant } from '../services/vapiService.js';
-import { PROMPT_DEFAULTS, resetProvider as resetLlmProvider } from '../services/llmService.js';
+import { resetProvider as resetLlmProvider } from '../services/llmService.js';
 import { getRuntimeKey, setRuntimeKey, API_KEYS } from '../config/apiConfig.js';
 import { resetClient as resetTwilioClient } from '../services/twilioService.js';
 
@@ -52,50 +52,6 @@ router.get('/', (_req, res) => {
 
 // ── All API routes below require admin password ───────────────────────────────
 router.use(requireAdminPassword);
-
-// GET /admin/prompts — all prompts with current values + override status
-router.get('/prompts', asyncHandler(async (_req, res) => {
-  const keys = Object.keys(PROMPT_DEFAULTS);
-  const rows = await Promise.all(keys.map((key) => getConfig(key)));
-
-  const prompts = keys.map((key, i) => ({
-    key,
-    defaultValue: PROMPT_DEFAULTS[key],
-    value: rows[i]?.value ?? PROMPT_DEFAULTS[key],
-    isOverridden: rows[i] !== null,
-    updatedAt: rows[i]?.updated_at ?? null,
-  }));
-
-  res.json({ prompts });
-}));
-
-// PUT /admin/prompts/:key — save an override
-router.put('/prompts/:key', asyncHandler(async (req, res) => {
-  const { key } = req.params;
-  const { value } = req.body;
-
-  if (!(key in PROMPT_DEFAULTS)) {
-    return res.status(400).json({ error: `Unknown prompt key: ${key}` });
-  }
-  if (typeof value !== 'string' || value.trim() === '') {
-    return res.status(400).json({ error: 'value must be a non-empty string' });
-  }
-
-  const row = await setConfig(key, value.trim());
-  res.json({ key, value: row.value, updatedAt: row.updated_at });
-}));
-
-// DELETE /admin/prompts/:key — reset to code default
-router.delete('/prompts/:key', asyncHandler(async (req, res) => {
-  const { key } = req.params;
-
-  if (!(key in PROMPT_DEFAULTS)) {
-    return res.status(400).json({ error: `Unknown prompt key: ${key}` });
-  }
-
-  await deleteConfig(key);
-  res.json({ key, reset: true, defaultValue: PROMPT_DEFAULTS[key] });
-}));
 
 // GET /admin/vapi/assistants — list from Vapi API
 router.get('/vapi/assistants', asyncHandler(async (_req, res) => {

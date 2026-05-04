@@ -260,20 +260,14 @@
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" id="tab-btn-prompts" onclick="switchTab('prompts')">Prompts</button>
-  <button class="tab-btn" id="tab-btn-apis" onclick="switchTab('apis')">API Keys</button>
+  <button class="tab-btn active" id="tab-btn-apis" onclick="switchTab('apis')">API Keys</button>
   <button class="tab-btn" id="tab-btn-vapi" onclick="switchTab('vapi')">Inbound Agent</button>
   <button class="tab-btn" id="tab-btn-outbound" onclick="switchTab('outbound')">Outbound</button>
   <button class="tab-btn" id="tab-btn-logs" onclick="switchTab('logs')">Logs</button>
 </div>
 
-<!-- Tab 1: Prompts -->
-<div id="tab-prompts" class="tab-panel active">
-  <div id="prompts-container"><p style="color:var(--muted);padding:16px 0;">Enter your admin password to load prompts.</p></div>
-</div>
-
-<!-- Tab 2: API Keys -->
-<div id="tab-apis" class="tab-panel">
+<!-- Tab 1: API Keys -->
+<div id="tab-apis" class="tab-panel active">
   <div class="section-header">
     <h2>API Keys</h2>
     <button class="btn-action" onclick="checkAllHealth()">&#10003; Check All</button>
@@ -395,20 +389,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const PROMPT_LABELS = {
-    'prompt.safety_context':         { label: 'Safety Context', note: 'Prepended to ALL LLM calls' },
-    'prompt.classify_intent':        { label: 'Classify Call Intent', note: '' },
-    'prompt.extract_appointment':    { label: 'Extract Appointment Details', note: '' },
-    'prompt.extract_refill':         { label: 'Extract Refill Details', note: '' },
-    'prompt.extract_sales_lead':     { label: 'Extract Sales Lead', note: '' },
-    'prompt.extract_support_ticket': { label: 'Extract Support Ticket', note: '' },
-    'prompt.summarize_call':         { label: 'Summarize Call', note: '' },
-    'prompt.generate_staff_note':    { label: 'Generate Staff Note', note: 'Include {type} — replaced with record type at runtime' },
-    'prompt.vapi_assistant_script':  { label: 'Vapi Assistant Script', note: 'Voice AI personality & flow — copy to Vapi dashboard' },
-  };
-
   let password = sessionStorage.getItem('adminPw') || '';
-  let promptsLoaded = false;
 
   if (password) {
     document.getElementById('pw-input').value = '••••••••';
@@ -433,10 +414,10 @@
   }
 
   async function loadAll() {
-    await Promise.all([loadPrompts(), loadApis()]);
-    const activeTab = ['prompts','apis','vapi','outbound','logs'].find(t =>
+    await loadApis();
+    const activeTab = ['apis','vapi','outbound','logs'].find(t =>
       document.getElementById('tab-btn-' + t)?.classList.contains('active')
-    ) || 'prompts';
+    ) || 'apis';
     if (activeTab === 'vapi') loadInboundTab();
     if (activeTab === 'outbound') loadOutboundTab();
     if (activeTab === 'logs') loadLogs();
@@ -444,7 +425,7 @@
 
   // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(name) {
-    const tabs = ['prompts','apis','vapi','outbound','logs'];
+    const tabs = ['apis','vapi','outbound','logs'];
     document.querySelectorAll('.tab-btn').forEach((b, i) =>
       b.classList.toggle('active', tabs[i] === name));
     document.querySelectorAll('.tab-panel').forEach(p =>
@@ -481,97 +462,6 @@
   // ── Escape HTML helper ─────────────────────────────────────────────────────
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  // ── Prompts tab ────────────────────────────────────────────────────────────
-  async function loadPrompts() {
-    if (!password) return;
-    const res = await fetch('/admin/prompts', { headers: authHeaders() });
-    if (res.status === 401) {
-      setAuthStatus('Wrong password', true);
-      return;
-    }
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setAuthStatus(data.error || `Server error ${res.status}`, true);
-      return;
-    }
-    setAuthStatus('Unlocked', false);
-    const { prompts } = await res.json();
-    promptsLoaded = true;
-    renderPrompts(prompts);
-  }
-
-  function renderPrompts(prompts) {
-    const container = document.getElementById('prompts-container');
-    container.innerHTML = prompts.map(p => {
-      const meta = PROMPT_LABELS[p.key] || { label: p.key, note: '' };
-      const isVapi = p.key === 'prompt.vapi_assistant_script';
-      return `
-        <div class="prompt-card ${p.isOverridden ? 'overridden' : ''}" id="card-${p.key}">
-          <div class="card-header">
-            <div>
-              <span class="card-title">${meta.label}</span>
-              ${meta.note ? `<span class="badge ${isVapi ? 'badge-vapi' : 'badge-default'}">${meta.note}</span>` : ''}
-              <span class="badge ${p.isOverridden ? 'badge-custom' : 'badge-default'}" id="badge-${p.key}">
-                ${p.isOverridden ? 'Customized' : 'Using default'}
-              </span>
-            </div>
-            <div class="card-actions">
-              ${isVapi ? `<button class="btn-copy" onclick="copyPrompt('${p.key}')">Copy</button>` : ''}
-              <button class="btn-save" onclick="savePrompt('${p.key}')">Save</button>
-              <button class="btn-reset" ${!p.isOverridden ? 'disabled' : ''} id="reset-${p.key}" onclick="resetPrompt('${p.key}')">Reset</button>
-            </div>
-          </div>
-          <textarea id="ta-${p.key}" rows="8">${escHtml(p.value)}</textarea>
-          <div class="card-footer">
-            <span class="updated-at" id="updated-${p.key}">
-              ${p.updatedAt ? '&#9679; Saved override &middot; ' + new Date(p.updatedAt).toLocaleString() : '&#10003; Using code default'}
-            </span>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  async function savePrompt(key) {
-    const value = document.getElementById('ta-' + key).value;
-    const res = await fetch('/admin/prompts/' + encodeURIComponent(key), {
-      method: 'PUT',
-      headers: authHeaders(),
-      body: JSON.stringify({ value }),
-    });
-    if (!res.ok) { toast((await res.json()).error, true); return; }
-    const data = await res.json();
-    document.getElementById('badge-' + key).className = 'badge badge-custom';
-    document.getElementById('badge-' + key).textContent = 'Customized';
-    document.getElementById('reset-' + key).disabled = false;
-    document.getElementById('updated-' + key).textContent =
-      '● Saved override · ' + new Date(data.updatedAt).toLocaleString();
-    document.getElementById('card-' + key).classList.add('overridden');
-    toast('Prompt saved ✓');
-  }
-
-  async function resetPrompt(key) {
-    if (!confirm('Reset this prompt to the code default?')) return;
-    const res = await fetch('/admin/prompts/' + encodeURIComponent(key), {
-      method: 'DELETE',
-      headers: authHeaders(),
-    });
-    if (!res.ok) { toast((await res.json()).error, true); return; }
-    const data = await res.json();
-    document.getElementById('ta-' + key).value = data.defaultValue;
-    document.getElementById('badge-' + key).className = 'badge badge-default';
-    document.getElementById('badge-' + key).textContent = 'Using default';
-    document.getElementById('reset-' + key).disabled = true;
-    document.getElementById('updated-' + key).textContent = '✓ Using code default';
-    document.getElementById('card-' + key).classList.remove('overridden');
-    toast('Reset to default ✓');
-  }
-
-  async function copyPrompt(key) {
-    const text = document.getElementById('ta-' + key).value;
-    await navigator.clipboard.writeText(text);
-    toast('Copied to clipboard ✓');
   }
 
   // ── API Keys tab ───────────────────────────────────────────────────────────
