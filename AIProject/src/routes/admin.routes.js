@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { requireAdminPassword } from '../middleware/adminAuth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { getConfig, setConfig, deleteConfig } from '../services/supabaseService.js';
+import { getConfig, setConfig, deleteConfig, getLogs, updateRecordStatus } from '../services/supabaseService.js';
 import { listAssistants, listPhoneNumbers, createOutboundCall } from '../services/vapiService.js';
 import { PROMPT_DEFAULTS, resetProvider as resetLlmProvider } from '../services/llmService.js';
 import { getRuntimeKey, setRuntimeKey, API_KEYS } from '../config/apiConfig.js';
@@ -22,6 +22,22 @@ const API_KEY_META = {
   CALENDLY_URL_SUPPORT:          { label: 'Support URL',          group: 'calendly' },
   VAPI_API_KEY:                  { label: 'API Key',              group: 'vapi' },
   VAPI_WEBHOOK_SECRET:           { label: 'Webhook Secret',       group: 'vapi' },
+};
+
+const LOG_TABLE_MAP = {
+  'call-logs':       'call_logs',
+  'appointments':    'appointments',
+  'refill-requests': 'refill_requests',
+  'sales-leads':     'sales_leads',
+  'support-tickets': 'support_tickets',
+};
+
+const STATUS_OPTIONS = {
+  call_logs:       null,
+  appointments:    ['link_sent', 'booked', 'cancelled', 'no_show'],
+  refill_requests: ['needs_staff_review', 'approved', 'denied', 'pending_callback'],
+  sales_leads:     ['new', 'contacted', 'qualified', 'closed_won', 'closed_lost'],
+  support_tickets: ['open', 'in_progress', 'resolved', 'closed'],
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -312,6 +328,44 @@ router.post('/outbound/call', asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, callId: call.id });
+}));
+
+// GET /admin/logs/:table — paginated log query with optional filters
+router.get('/logs/:table', asyncHandler(async (req, res) => {
+  const { table: tableSlug } = req.params;
+  const dbTable = LOG_TABLE_MAP[tableSlug];
+  if (!dbTable) {
+    return res.status(400).json({ error: `Unknown log table: ${tableSlug}` });
+  }
+
+  const limit  = Math.min(parseInt(req.query.limit  ?? '20', 10), 100);
+  const offset = Math.max(parseInt(req.query.offset ?? '0',  10), 0);
+  const { phone, from, to } = req.query;
+
+  const { rows, total } = await getLogs(dbTable, { limit, offset, phone, from, to });
+  res.json({ rows, total, statusOptions: STATUS_OPTIONS[dbTable] ?? null });
+}));
+
+// PATCH /admin/logs/:table/:id — update status field
+router.patch('/logs/:table/:id', asyncHandler(async (req, res) => {
+  const { table: tableSlug, id } = req.params;
+  const { status } = req.body;
+
+  const dbTable = LOG_TABLE_MAP[tableSlug];
+  if (!dbTable) {
+    return res.status(400).json({ error: `Unknown log table: ${tableSlug}` });
+  }
+
+  const options = STATUS_OPTIONS[dbTable];
+  if (!options) {
+    return res.status(400).json({ error: `Table "${tableSlug}" has no status field` });
+  }
+  if (!status || !options.includes(status)) {
+    return res.status(400).json({ error: `Invalid status. Must be one of: ${options.join(', ')}` });
+  }
+
+  const row = await updateRecordStatus(dbTable, id, status);
+  res.json({ id, status: row.status, updatedAt: row.updated_at });
 }));
 
 export default router;
