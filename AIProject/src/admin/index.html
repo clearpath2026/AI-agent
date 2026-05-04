@@ -315,8 +315,9 @@
 <!-- Tab 3: Inbound Agent -->
 <div id="tab-vapi" class="tab-panel">
   <div class="phone-bar" id="phone-bar">
-    <span class="phone-number" id="inbound-phone">&mdash;</span>
     <span class="live-badge" id="inbound-live-badge">&#9679; &mdash;</span>
+    <input type="tel" id="inbound-phone" class="key-input" placeholder="+1 6185551234" style="max-width:200px; font-family:monospace;">
+    <button class="btn-save" onclick="saveInboundPhone()">Save</button>
   </div>
 
   <p class="section-label" style="margin-bottom:6px">Active assistant</p>
@@ -692,11 +693,28 @@
     activeAssistantId = vapi_active_assistant_id;
     updateActiveBox(vapi_active_assistant_id, null);
 
+    const phoneEl = document.getElementById('inbound-phone');
     if (twilio_phone_number) {
-      document.getElementById('inbound-phone').textContent = twilio_phone_number;
+      phoneEl.value = twilio_phone_number;
       document.getElementById('inbound-live-badge').textContent = '● Live';
       document.getElementById('inbound-live-badge').style.color = 'var(--green)';
+    } else {
+      phoneEl.value = '';
     }
+  }
+
+  async function saveInboundPhone() {
+    const value = document.getElementById('inbound-phone').value.trim();
+    if (!value) { toast('Enter a phone number', true); return; }
+    const res = await fetch('/admin/apis/TWILIO_PHONE_NUMBER', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) { toast((await res.json().catch(()=>({}))).error || 'Save failed', true); return; }
+    document.getElementById('inbound-live-badge').textContent = '● Live';
+    document.getElementById('inbound-live-badge').style.color = 'var(--green)';
+    toast('Phone number saved ✓');
   }
 
   async function loadAssistants() {
