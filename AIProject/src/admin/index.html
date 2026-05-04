@@ -231,6 +231,21 @@
     .form-row textarea { resize: vertical; font-family: inherit; }
     .btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
     .btn-danger:hover { background: rgba(248,113,113,0.25); }
+
+    /* Logs tab */
+    .sub-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .sub-tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; padding: 8px 16px; transition: color .15s, border-color .15s; }
+    .sub-tab-btn.active { border-bottom-color: var(--accent); color: var(--text); }
+    .log-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .log-filters input { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px; }
+    .log-filters input[type="search"] { flex: 1; min-width: 150px; }
+    .log-filters input[type="date"] { width: 145px; color-scheme: dark; }
+    .logs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .logs-table th { background: var(--surface); border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; letter-spacing: .05em; padding: 8px 10px; text-align: left; text-transform: uppercase; position: sticky; top: 0; z-index: 1; }
+    .logs-table td { border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .logs-table tr:hover td { background: var(--surface); }
+    .log-pagination { align-items: center; display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; color: var(--muted); }
+    .status-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 3px 6px; }
   </style>
 </head>
 <body>
@@ -249,6 +264,7 @@
   <button class="tab-btn" id="tab-btn-apis" onclick="switchTab('apis')">API Keys</button>
   <button class="tab-btn" id="tab-btn-vapi" onclick="switchTab('vapi')">Inbound Agent</button>
   <button class="tab-btn" id="tab-btn-outbound" onclick="switchTab('outbound')">Outbound</button>
+  <button class="tab-btn" id="tab-btn-logs" onclick="switchTab('logs')">Logs</button>
 </div>
 
 <!-- Tab 1: Prompts -->
@@ -359,6 +375,34 @@
   </div>
 </div>
 
+<!-- Tab 5: Logs -->
+<div id="tab-logs" class="tab-panel">
+  <div class="sub-tabs">
+    <button class="sub-tab-btn active" onclick="switchLogTab('call-logs')">Call Logs</button>
+    <button class="sub-tab-btn" onclick="switchLogTab('appointments')">Appointments</button>
+    <button class="sub-tab-btn" onclick="switchLogTab('refill-requests')">Refill Requests</button>
+    <button class="sub-tab-btn" onclick="switchLogTab('sales-leads')">Sales Leads</button>
+    <button class="sub-tab-btn" onclick="switchLogTab('support-tickets')">Support Tickets</button>
+  </div>
+
+  <div class="log-filters">
+    <input type="search" id="log-phone-filter" placeholder="Filter by phone…">
+    <input type="date" id="log-from-filter">
+    <input type="date" id="log-to-filter">
+    <button class="btn-refresh" onclick="loadLogs()">&#8635; Refresh</button>
+  </div>
+
+  <div id="logs-table-container"><p style="color:var(--muted)">Select the Logs tab to load records.</p></div>
+
+  <div class="log-pagination">
+    <span id="log-count-text"></span>
+    <div>
+      <button class="btn-refresh" id="log-prev-btn" onclick="logPagePrev()" disabled>&#8592; Prev</button>
+      <button class="btn-refresh" id="log-next-btn" onclick="logPageNext()">Next &#8594;</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -401,16 +445,17 @@
 
   async function loadAll() {
     await Promise.all([loadPrompts(), loadApis(), loadVapiConfig()]);
-    const activeTab = ['prompts','apis','vapi','outbound'].find(t =>
+    const activeTab = ['prompts','apis','vapi','outbound','logs'].find(t =>
       document.getElementById('tab-btn-' + t)?.classList.contains('active')
     ) || 'prompts';
     if (activeTab === 'vapi') loadAssistants();
     if (activeTab === 'outbound') loadOutboundTab();
+    if (activeTab === 'logs') loadLogs();
   }
 
   // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(name) {
-    const tabs = ['prompts','apis','vapi','outbound'];
+    const tabs = ['prompts','apis','vapi','outbound','logs'];
     document.querySelectorAll('.tab-btn').forEach((b, i) =>
       b.classList.toggle('active', tabs[i] === name));
     document.querySelectorAll('.tab-panel').forEach(p =>
@@ -421,6 +466,9 @@
     }
     if (name === 'outbound' && password) {
       loadOutboundTab();
+    }
+    if (name === 'logs' && password) {
+      loadLogs();
     }
   }
 
@@ -812,6 +860,133 @@
       resultEl.textContent = '✓ Call placed — ID: ' + (data.callId || 'unknown');
       resultEl.style.color = 'var(--green)';
     }
+  }
+  // ── Logs tab ───────────────────────────────────────────────────────────────
+  let currentLogTable = 'call-logs';
+  let logOffset = 0;
+  const LOG_LIMIT = 20;
+  let logTotal = 0;
+  let logStatusOptions = null;
+
+  const LOG_COLUMNS = {
+    'call-logs':       ['Time','Phone','Intent','Summary','Duration','Ended Reason'],
+    'appointments':    ['Time','Name','Phone','Type','Calendly UUID','Status'],
+    'refill-requests': ['Time','Patient','Phone','Medication','Status','Staff Note'],
+    'sales-leads':     ['Time','Name','Company','Phone','Interest','Status'],
+    'support-tickets': ['Time','Name','Phone','Issue','Urgency','Status'],
+  };
+
+  function getLogCellValue(row, col) {
+    const s = row.structured_data || {};
+    switch (col) {
+      case 'Time':          return new Date(row.created_at).toLocaleString();
+      case 'Phone':         return row.phone || row.caller_phone || '—';
+      case 'Intent':        return row.intent || '—';
+      case 'Summary':       return row.summary || '—';
+      case 'Duration':      return s.duration_seconds != null ? s.duration_seconds + 's' : '—';
+      case 'Ended Reason':  return s.ended_reason || '—';
+      case 'Name':          return row.name || row.patient_name || '—';
+      case 'Patient':       return row.patient_name || row.name || '—';
+      case 'Type':          return row.appointment_type || '—';
+      case 'Calendly UUID': return row.calendly_event_uuid ? row.calendly_event_uuid.slice(0,8) + '…' : '—';
+      case 'Medication':    return row.medication_name || '—';
+      case 'Company':       return row.company_name || '—';
+      case 'Interest':      return row.interest || '—';
+      case 'Issue':         return row.issue || row.description || '—';
+      case 'Urgency':       return row.urgency || '—';
+      case 'Staff Note':    return row.staff_note || '—';
+      case 'Status':        return row.status || '—';
+      default:              return '—';
+    }
+  }
+
+  function switchLogTab(table) {
+    currentLogTable = table;
+    logOffset = 0;
+    document.querySelectorAll('.sub-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('onclick') === `switchLogTab('${table}')`);
+    });
+    loadLogs();
+  }
+
+  async function loadLogs() {
+    if (!password) return;
+    const phone = document.getElementById('log-phone-filter').value.trim();
+    const from  = document.getElementById('log-from-filter').value;
+    const to    = document.getElementById('log-to-filter').value;
+
+    const params = new URLSearchParams({ limit: LOG_LIMIT, offset: logOffset });
+    if (phone) params.set('phone', phone);
+    if (from)  params.set('from', from);
+    if (to)    params.set('to', to);
+
+    const res = await fetch(`/admin/logs/${currentLogTable}?${params}`, { headers: authHeaders() });
+    if (!res.ok) {
+      document.getElementById('logs-table-container').innerHTML =
+        `<p style="color:var(--red)">Failed to load logs: ${res.status}</p>`;
+      return;
+    }
+    const { rows, total, statusOptions } = await res.json();
+    logTotal = total;
+    logStatusOptions = statusOptions;
+
+    renderLogsTable(rows);
+    const start = logOffset + 1;
+    const end   = Math.min(logOffset + LOG_LIMIT, total);
+    document.getElementById('log-count-text').textContent =
+      total === 0 ? 'No records' : `Showing ${start}–${end} of ${total}`;
+    document.getElementById('log-prev-btn').disabled = logOffset === 0;
+    document.getElementById('log-next-btn').disabled = logOffset + LOG_LIMIT >= total;
+  }
+
+  function renderLogsTable(rows) {
+    const container = document.getElementById('logs-table-container');
+    const columns = LOG_COLUMNS[currentLogTable] || [];
+
+    if (!rows.length) {
+      container.innerHTML = '<p style="color:var(--muted);padding:16px 0;">No records found.</p>';
+      return;
+    }
+
+    const header = columns.map(c => `<th>${escHtml(c)}</th>`).join('');
+    const body = rows.map(row => {
+      const cells = columns.map(col => {
+        if (col === 'Status' && logStatusOptions) {
+          const opts = logStatusOptions.map(o =>
+            `<option value="${escHtml(o)}" ${row.status === o ? 'selected' : ''}>${escHtml(o.replace(/_/g,' '))}</option>`
+          ).join('');
+          return `<td><select class="status-select" data-id="${escHtml(String(row.id))}" onchange="updateLogStatus(this.dataset.id, this.value)">${opts}</select></td>`;
+        }
+        const val = String(getLogCellValue(row, col));
+        return `<td title="${escHtml(val)}">${escHtml(val)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    container.innerHTML = `<table class="logs-table"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  async function updateLogStatus(id, status) {
+    const res = await fetch(`/admin/logs/${currentLogTable}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      toast('Status update failed', true);
+    } else {
+      toast('Status updated ✓');
+    }
+  }
+
+  function logPagePrev() {
+    logOffset = Math.max(0, logOffset - LOG_LIMIT);
+    loadLogs();
+  }
+
+  function logPageNext() {
+    logOffset += LOG_LIMIT;
+    loadLogs();
   }
 </script>
 </body>
